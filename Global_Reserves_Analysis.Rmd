@@ -1,0 +1,315 @@
+---
+title: "Global Reserves Analysis"
+author: "Abhinav Masih, Guntaniya John, Naman Arora"
+date: "2024-12-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+options(warn=-1)
+```
+
+## Introduction
+
+Reserves refer to the funds or resources set aside by organizations or governments to cover future obligations, uncertainties, or emergencies. These can include financial reserves like cash or securities, as well as natural reserves such as oil, gas, or minerals. In banking, reserves often refer to the capital that banks are required to hold to ensure they can meet their obligations.
+
+The main aim of this project is to analyze and understand the distribution, trends, and factors influencing reserves across various countries using statistical methods and visualizations in R.
+
+### Objectives
+
+1. To explore the patterns and trends in reserves (e.g., foreign exchange reserves, gold reserves) across countries or regions using statistical tools in R.
+2. To examine how reserves vary geographically and temporally i.e. from region to region and from time to time.
+3. To identify potential relationships between reserves and other economic indicators (e.g., GDP, population, trade balance).
+
+---
+
+## Source and Key Variables
+
+**Data Source:** World Bank — a reliable global database providing comprehensive statistics on reserves and other economic indicators for various countries.
+
+**Key Variables:**
+
+1. **Country** — Name of the country being analyzed. *(Categorical)*
+2. **Year** — The year for which the data is recorded. *(Numerical)*
+3. **Reserves (USD)** — Total reserves held by a country, measured in U.S. dollars. *(Numerical — main variable of interest)*
+4. **Region** — The region or continent where the country is located. *(Categorical)*
+5. **GDP** — Gross Domestic Product of the country in the same year. *(Numerical)*
+6. **Population** — The total population of the country. *(Numerical)*
+
+---
+
+## 1. Exploratory Data Analysis (EDA)
+
+```{r load-data}
+# Load the Bank Reserves dataset
+# Download datasets from World Bank: https://data.worldbank.org/
+file_1 <- read.csv("Bank_Reserves.csv")
+
+# Summarization using descriptive statistics
+summary(file_1)
+mean(file_1$Reserves)
+median(file_1$Cost.to.export)
+sd(file_1$Cost.of.Import)
+
+# Correlation between variables
+cor(file_1$Reserves, file_1$Cost.to.export)
+```
+
+```{r head-data}
+# View first few rows
+head(file_1)
+```
+
+```{r data-cleaning}
+# Data cleaning
+file_1 <- na.omit(file_1)           # Handling missing values
+file_1 <- subset(file_1, Reserves > 0)  # Filtering data
+head(file_1)
+```
+
+---
+
+## 2. Data Manipulation
+
+```{r data-manipulation}
+library(dplyr)
+
+# Filtering and selecting
+data_filtered <- file_1 %>%
+  filter(Reserves > 1000) %>%
+  select(Country, Reserves)
+
+data_filtered
+
+# Grouping and summarizing
+summary_data <- data_filtered %>%
+  group_by(Country) %>%
+  summarise(TotalReserves = sum(Reserves))
+
+summary_data
+```
+
+---
+
+## 3. Comparative Data Analysis
+
+### Bar Chart: Gold Reserves of the World
+
+```{r gold-reserves-bar}
+library(plotly)
+library(ggplot2)
+
+# Load Gold Reserves dataset
+file_2 <- read.csv("Gold_Reserves.csv")
+head(file_2)
+
+# Bar chart of top 20 countries by gold reserves
+plot1 <- ggplot(head(file_2, 20), aes(x = Countries, y = Reserves, fill = Reference)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Comparison of Gold Reserves by Country",
+       y = "Value (in Tons)", x = "Country")
+
+# Convert to interactive plot
+interactive_plot <- ggplotly(plot1)
+interactive_plot
+```
+
+### Pie Chart: Income Groups Based on Gold Reserves
+
+```{r income-pie-chart}
+library(ggplot2)
+library(dplyr)
+
+# Function to classify income groups based on Reserves
+classify_income <- function(d) {
+  d$IncomeGroup <- ifelse(d$Reserves > 1000, "High Income",
+                   ifelse(d$Reserves > 100 & d$Reserves <= 1000, "Mid Income",
+                   ifelse(d$Reserves <= 100, "Low Income", NA)))
+  return(d)
+}
+
+# Apply to dataset file_2
+file_2 <- classify_income(file_2)
+
+# Summarize the data by income group
+summary_data <- file_2 %>%
+  group_by(IncomeGroup) %>%
+  summarise(Count = n())
+
+# Create a pie chart
+pie_chart <- ggplot(summary_data, aes(x = "", y = Count, fill = IncomeGroup)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Distribution of Reserves by Income Group") +
+  scale_fill_brewer(palette = "Set3")
+
+print(pie_chart)
+```
+
+### Boxplot: Income Groups Comparison with Percentile Lines
+
+```{r boxplot-percentiles}
+# Calculate 33rd and 67th percentiles
+percentiles <- quantile(file_2$Reserves, probs = c(0.33, 0.67))
+
+# Create a boxplot with percentile lines
+ggplot(file_2, aes(x = Reserves)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  geom_vline(xintercept = percentiles, linetype = "dashed", color = "red") +
+  labs(title = "Boxplot with Percentile Lines",
+       x = "Reserves (Tons)", y = "") 
+```
+
+---
+
+## 4. Distribution Analysis
+
+### Boxplot: Bank Reserves Distribution
+
+```{r bank-reserves-boxplot}
+library(ggplot2)
+
+# Load Bank Reserves 2 dataset
+file_4 <- read.csv("Bank_Reserves_2.csv")
+
+plot2 <- ggplot(head(file_4), aes(x = Countries, y = Reserves, fill = "black")) +
+  geom_boxplot(width = 10, size = 5) +
+  theme_minimal() +
+  labs(title = "Distribution of Reserves by Country",
+       y = "Reserves (in USD)", x = "Countries")
+
+interactive_plot2 <- ggplotly(plot2)
+interactive_plot2
+```
+
+---
+
+## 5. Temporal Analysis
+
+### Scatter Plot: Crude Oil Reserves (1995)
+
+```{r crude-oil-scatter}
+# Load Crude Oil Reserves dataset
+file_3 <- read.csv("Crude_Oil_Reserves.csv")
+head(file_3)
+
+ggplot(head(file_3, 7), aes(Country, X1995)) +
+  geom_point(size = 4, color = "green") +
+  labs(title = "Year 1995 Crude Oil Distribution") +
+  theme_classic()
+```
+
+### Line Chart: Temporal Relationship of Reserves (Selected Countries)
+
+```{r temporal-line-chart}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+# Reshape the data from wide to long format
+long_data <- file_3 %>%
+  pivot_longer(cols = c("X1995", "X1996", "X1997", "X1998", "X1999", "X2000"),
+               names_to = "Year",
+               values_to = "Reserves")
+
+# Filter for selected countries
+selected_countries <- c("Germany", "China", "India", "Israel", "United States")
+filtered_data <- long_data %>%
+  filter(Country %in% selected_countries)
+
+# Line chart
+ggplot(filtered_data, aes(x = Year, y = Reserves, color = Country, group = Country)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Reserves of Selected Countries Over the Years",
+       x = "Year", y = "Reserves (USD)",
+       color = "Country") +
+  theme_classic()
+```
+
+---
+
+## 6. Correlation Analysis
+
+```{r correlation-analysis}
+# Calculate correlation between reserves and export/import costs
+head(file_1)
+
+cor_res_export <- cor(file_1$Reserves, file_1$Cost.to.export, use = "complete.obs")
+cor_res_import <- cor(file_1$Reserves, file_1$Cost.of.Import, use = "complete.obs")
+
+cat("Correlation between Reserves and Export Cost:", cor_res_export, "\n")
+cat("Correlation between Reserves and Import Cost:", cor_res_import, "\n")
+```
+
+```{r scatter-export}
+library(ggplot2)
+
+# Reserves vs Export Cost
+ggplot(file_1, aes(x = Cost.to.export, y = Reserves)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Reserves vs Export Cost",
+       x = "Export Cost (USD)",
+       y = "Reserves (USD)") +
+  theme_minimal()
+```
+
+```{r scatter-import}
+# Reserves vs Import Cost
+ggplot(file_1, aes(x = Cost.of.Import, y = Reserves)) +
+  geom_point(color = "green", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Reserves vs Import Cost",
+       x = "Import Cost (USD)",
+       y = "Reserves (USD)") +
+  theme_minimal()
+```
+
+---
+
+## 7. Clustering: Reserves Distribution by Description
+
+```{r clustering-pie}
+library(dplyr)
+library(ggplot2)
+
+# Summarize reserves by Description
+data_summary <- file_1 %>%
+  group_by(Description) %>%
+  summarise(TotalReserves = sum(Reserves, na.rm = TRUE))
+
+data_summary
+
+# Pie chart of reserves by description
+ggplot(data_summary, aes(x = "", y = TotalReserves, fill = Description)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  labs(title = "Reserves Distribution by Description",
+       x = NULL, y = NULL, fill = "Description") +
+  theme_void()
+```
+
+---
+
+## 8. Conclusion
+
+In this project, we explored and analyzed global Reserves data to gain valuable insights into distribution and trends:
+
+1. **Data Import and Cleaning** — Imported datasets, handled missing values, and ensured data quality.
+2. **Descriptive Analysis** — Summarized data using descriptive statistics to understand basic characteristics.
+3. **Data Manipulation and Classification** — Categorized countries into High, Mid, and Low Income groups based on reserves.
+4. **Visualization Techniques** — Used bar plots, pie charts, boxplots, scatter plots, and line charts for comparative analysis.
+5. **Percentile Analysis** — Identified thresholds and compared reserves distribution across countries.
+6. **Interactive Visualizations** — Used `plotly` for dynamic exploration of the data.
+7. **Temporal Analysis** — Tracked crude oil reserve trends from 1995–2000 across major economies.
+
+Overall, this comprehensive approach uncovered significant patterns in global reserves across different countries and years, providing insights valuable for policymakers and researchers.
+
+---
+
+*Data sourced from the World Bank. Analysis performed using R with libraries: ggplot2, dplyr, tidyr, plotly.*
